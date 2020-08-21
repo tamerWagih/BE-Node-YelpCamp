@@ -2,84 +2,25 @@ const express = require('express');
 const app = express();
 const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
+const Campground = require('./models/campground')
+const Comment = require('./models/comment')
+// const User = require('./models/user')
+const seedDB = require('./seeds');
+const comment = require('./models/comment');
+const campground = require('./models/campground');
+
 
 app.set('view engine', 'ejs');
 app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.static(__dirname + 'public'));
 
 mongoose.connect('mongodb://localhost:27017/yelp_camp', {
     useNewUrlParser: true,
     useUnifiedTopology: true,
 });
 
-//Schema Setup
+seedDB();
 
-const campgroundSchema = new mongoose.Schema({
-    name: String,
-    image: String,
-    description: String,
-});
-
-const Campground = mongoose.model('Campground', campgroundSchema);
-
-// Campground.create(
-//     {
-//         name: 'Granite Hill',
-//         image:
-//             'https://i.pinimg.com/originals/d4/3a/ce/d43ace987bb734625cf089b79cf5acc9.jpg',
-//         description:
-//             'Lorem ipsum dolor sit amet consectetur adipisicing elit. Provident ut ipsam quam ab amet molestiae earum, deserunt harum exercitationem est?',
-//     },
-//     (err, campground) => {
-//         if (err) console.log(err);
-//         else {
-//             console.log('Newly Created Campground');
-//             console.log(campground);
-//         }
-//     }
-// );
-
-// campgrounds = [
-//     {
-//         name: 'Salmon Greek',
-//         image:
-//             'https://media-cdn.tripadvisor.com/media/photo-s/0e/b7/aa/51/camping-area.jpg',
-//     },
-//     {
-//         name: 'Granite Hill',
-//         image:
-//             'https://i.pinimg.com/originals/d4/3a/ce/d43ace987bb734625cf089b79cf5acc9.jpg',
-//     },
-//     {
-//         name: "Mountin Goat's Rest",
-//         image:
-//             'https://media-cdn.tripadvisor.com/media/photo-s/13/b8/8a/28/olakira-camp-asilia-africa.jpg',
-//     },
-//     {
-//         name: 'Salmon Greek',
-//         image:
-//             'https://media-cdn.tripadvisor.com/media/photo-s/0e/b7/aa/51/camping-area.jpg',
-//     },
-//     {
-//         name: 'Granite Hill',
-//         image:
-//             'https://i.pinimg.com/originals/d4/3a/ce/d43ace987bb734625cf089b79cf5acc9.jpg',
-//     },
-//     {
-//         name: "Mountin Goat's Rest",
-//         image:
-//             'https://media-cdn.tripadvisor.com/media/photo-s/13/b8/8a/28/olakira-camp-asilia-africa.jpg',
-//     },
-//     {
-//         name: 'Salmon Greek',
-//         image:
-//             'https://media-cdn.tripadvisor.com/media/photo-s/0e/b7/aa/51/camping-area.jpg',
-//     },
-//     {
-//         name: 'Granite Hill',
-//         image:
-//             'https://i.pinimg.com/originals/d4/3a/ce/d43ace987bb734625cf089b79cf5acc9.jpg',
-//     },
-// ];
 
 app.get('/', (req, res) => {
     res.render('landing');
@@ -89,7 +30,7 @@ app.get('/campgrounds', (req, res) => {
     Campground.find({}, (err, allCampgrounds) => {
         if (err) console.log(err);
         else {
-            res.render('index', { campgrounds: allCampgrounds });
+            res.render('campgrounds/index', { campgrounds: allCampgrounds });
         }
     });
 });
@@ -109,19 +50,53 @@ app.post('/campgrounds', (req, res) => {
 });
 
 app.get('/campgrounds/new', (req, res) => {
-    res.render('new.ejs');
+    res.render('campgrounds/new');
 });
 
 app.get('/campgrounds/:id', (req, res) => {
     const id = req.params.id;
-    Campground.findById(id, (err, foundCampground) => {
+    Campground.findById(id).populate('comments').exec( (err, foundCampground) => {
         if(err) {
              console.log(err);
         }
         else {
-            res.render('show', {campground: foundCampground});
+            console.log(foundCampground);
+            res.render('campgrounds/show', {campground: foundCampground});
         }
     });
+});
+
+//==========================
+// COMMENTS ROUTES
+//==========================
+
+app.get('/campgrounds/:id/comments/new', (req, res) => {
+    Campground.findById(req.params.id, (err, foundCampground) => {
+        if(err) {
+            console.log(err);
+        } else {
+            res.render('comments/new', {campground: foundCampground});
+        }
+    })
+});
+
+app.post('/campgrounds/:id/comments', (req, res) => {
+    Campground.findById(req.params.id, (err, foundCampground) => {
+        if(err) {
+            console.log(err);
+            res.redirect('/campgrounds');
+        }else {
+            Comment.create(req.body.comment, (err, comment) => {
+                if(err) {
+                    console.log(err);
+                } else {
+                    foundCampground.comments.push(comment);
+                    foundCampground.save();
+                    res.redirect('/campgrounds/' + foundCampground._id); 
+                }
+            });
+        }
+    })
 });
 
 app.listen(3000, () => {
