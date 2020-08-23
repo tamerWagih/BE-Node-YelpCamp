@@ -14,20 +14,20 @@ router.get('/register', (req, res) => {
 });
 
 //Register handle Route
-router.post('/register', (req, res) => {
-    User.register(
-        new User({ username: req.body.username }),
-        req.body.password,
-        (err, user) => {
-            if (err) {
-                console.log(err);
-                return res.render('/register');
-            }
-            passport.authenticate('local')(req, res, () => {
-                res.redirect('/campgrounds');
-            });
+router.post('/register', function (req, res) {
+    const newUser = new User({ username: req.body.username });
+    User.register(newUser, req.body.password, function (err, user) {
+        if (err) {
+            return res.render("register", {error: err.message});
         }
-    );
+        passport.authenticate('local')(req, res, function () {
+            req.flash(
+                'success',
+                'Successfully Signed Up! Nice to meet you ' + req.body.username
+            );
+            res.redirect('/campgrounds');
+        });
+    });
 });
 
 //Login Form Route
@@ -36,27 +36,22 @@ router.get('/login', (req, res) => {
 });
 
 //Login handle Route
-router.post(
-    '/login',
-    passport.authenticate('local', {
-        successRedirect: '/campgrounds',
-        failureRedirect: '/login',
-    }),
-    (req, res) => {}
-);
+router.post("/login", function (req, res, next) {
+    passport.authenticate("local",
+      {
+        successRedirect: "/campgrounds",
+        failureRedirect: "/login",
+        failureFlash: true,
+        successFlash: "Welcome to YelpCamp " + req.body.username
+      })(req, res)
+  });
 
 //Logout Route
 router.get('/logout', (req, res) => {
     req.logOut();
+    req.flash('success', 'Logged you out!');
     res.redirect('/campgrounds');
 });
 
-//middleWare
-function isLogedIn(req, res, next) {
-    if (req.isAuthenticated()) {
-        return next();
-    }
-    res.redirect('/login');
-}
 
 module.exports = router;
